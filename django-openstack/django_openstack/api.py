@@ -166,6 +166,12 @@ class KeyPair(APIResourceWrapper):
     _attrs = ['fingerprint', 'name', 'private_key']
 
 
+class Volume(APIResourceWrapper):
+    """Nova Volume representation"""
+    _attrs = ['id', 'status', 'displayName', 'size', 'volumeType', 'createdAt',
+              'attachments', 'displayDescription']
+
+
 class Server(APIResourceWrapper):
     """Simple wrapper around openstackx.extras.server.Server
 
@@ -554,6 +560,37 @@ def keypair_list(request):
     return [KeyPair(key) for key in novaclient(request).keypairs.list()]
 
 
+def volume_list(request):
+    return [Volume(vol) for vol in novaclient(request).volumes.list()]
+
+
+def volume_get(request, volume_id):
+    return Volume(novaclient(request).volumes.get(volume_id))
+
+
+def volume_instance_list(request, instance_id):
+    return novaclient(request).volumes.get_server_volumes(instance_id)
+
+
+def volume_create(request, size, name, description):
+    return Volume(novaclient(request).volumes.create(
+            size, name, description))
+
+
+def volume_delete(request, volume_id):
+    novaclient(request).volumes.delete(volume_id)
+
+
+def volume_attach(request, volume_id, instance_id, device):
+    novaclient(request).volumes.create_server_volume(
+            instance_id, volume_id, device)
+
+
+def volume_detach(request, instance_id, attachment_id):
+    novaclient(request).volumes.delete_server_volume(
+            instance_id, attachment_id)
+
+
 def server_create(request, name, image, flavor,
                            key_name, user_data, security_groups):
     return Server(novaclient(request).servers.create(
@@ -676,6 +713,7 @@ def token_create(request, tenant, username, password):
 
 
 
+
 def token_create_scoped(request, tenant, token):
     '''
     Creates a scoped token using the tenant id and unscoped token; retrieves
@@ -687,6 +725,7 @@ def token_create_scoped(request, tenant, token):
                        endpoint=settings.OPENSTACK_KEYSTONE_URL)
     scoped_token = c.tokens.authenticate(tenant=tenant, token=token)
     return Token(scoped_token)
+
 
 
 
@@ -987,8 +1026,8 @@ class GlobalSummary(object):
             self.service_list = service_list(self.request)
         except api_exceptions.ApiException, e:
             self.service_list = []
-            LOG.exception('ApiException fetching service list '
-                          'in instance usage')
+            LOG.exception('ApiException fetching service list in instance '
+                    'usage')
             messages.error(self.request,
                            _('Unable to get service info: %s') % e.message)
             return
